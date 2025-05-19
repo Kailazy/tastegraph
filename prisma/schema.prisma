@@ -1,0 +1,124 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User account model
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  savedGraphs   Graph[]
+}
+
+// OAuth account model for Spotify login
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// User session model
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Model for storing Spotify track data
+model Track {
+  id               String        @id // Spotify track ID
+  name             String
+  artists          String
+  album            String
+  albumImageUrl    String?
+  previewUrl       String?
+  popularity       Int?
+  danceability     Float?
+  energy           Float?
+  valence          Float?
+  tempo            Float?
+  acousticness     Float?
+  instrumentalness Float?
+  sourceNodes      Connection[]  @relation("sourceTrack")
+  targetNodes      Connection[]  @relation("targetTrack")
+  graphs           GraphTrack[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+// Model for connections between tracks
+model Connection {
+  id                String   @id @default(cuid())
+  sourceId          String
+  targetId          String
+  source            Track    @relation("sourceTrack", fields: [sourceId], references: [id])
+  target            Track    @relation("targetTrack", fields: [targetId], references: [id])
+  similarityScore   Float
+  danceabilityDiff  Float?
+  energyDiff        Float?
+  valenceDiff       Float?
+  tempoDiff         Float?
+  acousticnessDiff  Float?
+  graphId           String?
+  graph             Graph?   @relation(fields: [graphId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([sourceId, targetId, graphId])
+}
+
+// Model for saved graphs
+model Graph {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tracks      GraphTrack[]
+  connections Connection[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+// Join model for tracks in a graph
+model GraphTrack {
+  id        String   @id @default(cuid())
+  graphId   String
+  trackId   String
+  graph     Graph    @relation(fields: [graphId], references: [id], onDelete: Cascade)
+  track     Track    @relation(fields: [trackId], references: [id])
+  positionX Float?
+  positionY Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([graphId, trackId])
+}
